@@ -4,8 +4,9 @@ import { Swarm } from './swarm.js'
 import { Shots } from './shots.js'
 import { Hud } from './hud.js'
 import { setupInput } from './input.js'
+import { addXRButtons } from './xr.js'
 
-const { renderer, scene, camera, world } = createScene()
+const { renderer, scene, camera, world, backdrop } = createScene()
 const swarm = new Swarm(world)
 const lasers = new Shots(world, new THREE.BoxGeometry(0.03, 0.03, 0.5))
 const bombs = new Shots(world, new THREE.BoxGeometry(0.06, 0.2, 0.06))
@@ -15,7 +16,8 @@ const clock = new THREE.Clock()
 
 const state = { playing: false, score: 0, cooldown: 0, bombTimer: 0 }
 
-setupInput({ renderer, scene, camera, onFire: fire })
+const input = setupInput({ renderer, scene, camera, onFire: fire })
+addXRButtons(document.querySelector('#buttons'), renderer, document.querySelector('#overlay'))
 document.querySelector('#play').onclick = startGame
 
 function startGame() {
@@ -68,6 +70,26 @@ function update(dt) {
 
   if (swarm.cleared || swarm.landed) swarm.reset()
 }
+
+renderer.xr.addEventListener('sessionstart', () => {
+  const ar = renderer.xr.getSession().environmentBlendMode !== 'opaque'
+  scene.background = ar ? null : new THREE.Color(0x000000)
+  backdrop.visible = !ar
+  // 6m radius is way too big for a room
+  world.scale.setScalar(ar ? 0.4 : 1)
+  hud.mesh.visible = !ar
+  startGame()
+})
+
+renderer.xr.addEventListener('sessionend', () => {
+  scene.background = new THREE.Color(0x000000)
+  backdrop.visible = true
+  world.scale.setScalar(1)
+  hud.mesh.visible = false
+  input.reset()
+  state.playing = false
+  document.body.classList.remove('playing')
+})
 
 swarm.reset()
 
